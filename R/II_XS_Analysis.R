@@ -26,7 +26,7 @@ workspace_dir <- "data/"
 
 #Load dem and inundation rasters
 dem<-raster(paste0(spatial_dir,"II_Work\\dem_neon.tif"))
-flood<-raster(paste0(spatial_dir,"III_Products/median_inundation_dur.tif"))
+flood<-raster(paste0(spatial_dir,"III_Products/mean_inundation_dur.tif"))
 
 #load XS data
 xs<-list.files(paste0(spatial_dir,"I_Data/Sipsey transects/"), full.names = T ) %>% 
@@ -50,7 +50,6 @@ mapview(dem) +
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #2.0 Create sampling plots -----------------------------------------------------
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 #Sample 5 equally placed points along cross section
 center_pnts<-st_line_sample(xs, 5) 
 
@@ -75,19 +74,12 @@ mapview(dem) +
   mapView(p)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#3.0 Extract info about sampling plots------------------------------------------
+#3.0 Characterize distributions of elevationa nd flood duration ----------------
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#Estimate median stats (fow now, we can get crazy later!)
-#stat_fun<-function(x) median(x)
-
-#Apply functions
+#Define  elevation and duration distributions across sampling plots
 p$ele_m<-raster::extract(dem, p, fun = mean)
 p$dur_day<-raster::extract(flood, p, fun = mean)
 
-
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#4.0 Compare distributions -----------------------------------------------------
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #Create mask raster to identify flooded areas
 mask<-flood
 mask[mask==0]<-NA
@@ -96,11 +88,53 @@ mask<-mask*0+1
 #Extract distribution from DEM and Duration
 ele_pnts<-dem*mask
 ele_pnts<-rasterToPoints(ele_pnts) 
-ele_pnts<-as_tibble(ele_pnts)
+ele_pnts<-as_tibble(ele_pnts) %>% filter(layer>55)
+dur_pnts<-rasterToPoints(flood) 
+dur_pnts<-as_tibble(dur_pnts) %>% filter(mean_inundation_dur>2)
 
+#Conduct KS test on elevation dist
+ks.test(p$ele_m, ele_pnts$layer)
 
+#Conduct KS test on elevation dist
+ks.test(p$dur_day, dur_pnts$mean_inundation_dur)
 
-
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#4.0 Plots ----------------------------------------------------------------------
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#elevation
+elevation_plot<-ggplot() +
+  geom_density(
+    aes(ele_pnts$layer),
+    bg='#E57200',
+    alpha=0.7) +
+  geom_density(
+    aes(p$ele_m), 
+    bg='#232D4B', 
+    alpha = 0.7) +
+  theme_bw() + 
+  theme(
+    axis.title = element_text(size = 14), 
+    axis.text  = element_text(size = 10)
+  ) + 
+  xlab("Probability") + 
+  ylab("Elevation [m]")  
+  
+ggplot() +
+  geom_density(
+    aes(dur_pnts$mean_inundation_dur),
+    bg='#E57200',
+    alpha=0.7) +
+  geom_density(
+    aes(p$dur_day), 
+    bg='#232D4B', 
+    alpha = 0.7) +
+  theme_bw() + 
+  theme(
+    axis.title = element_text(size = 14), 
+    axis.text  = element_text(size = 10)
+  ) + 
+  xlab("Probability") + 
+  ylab("Inundation Duration [Day]")  
 
 
 

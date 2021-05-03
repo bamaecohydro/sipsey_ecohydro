@@ -20,6 +20,7 @@ library(leaflet)
 library(htmlwidgets)
 library(lubridate)
 library(tidyverse)
+library(parallel)
 
 #Set directories of interest
 spatial_dir<-"C:\\Users\\cnjones7\\Box Sync\\My Folders\\Research Projects\\Sipsey\\spatial_data\\"
@@ -145,6 +146,9 @@ df<- df %>% mutate(ele_norm_m = ele_m + offset)
 #Create inundation function 
 dem_inundate<-function(dem_norm, ele, weight=1){
   
+  #Call libraries of interest
+  library(raster)
+  
   #Create conditional fun
   con<-function(condition, trueValue, falseValue){
     return(condition * trueValue + (!condition)*falseValue)
@@ -166,98 +170,21 @@ inun<-df %>%
   group_by(ele) %>% 
   summarise(weight = n())
 
-#run function
-r_inun<-lapply(
-  X=seq(1, nrow(inun)), 
-  FUN = function(n) dem_inundate(dem_norm, ele=inun$ele[n], weight = inun$weight[n])
-)
-
-#Create raster brick
-rs<-stack(r_inun)
-
-#Calculate sum
-dur<-raster::calc(rs, sum, na.rm=T)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#4.3 Wrapper function-----------------------------------------------------------
-#Denote water year for each record
-df<-df %>% 
-  mutate(
-    water_year = year(date),
-    month      = month(date),
-    water_year = if_else(month>=10, water_year+1, water_year)
-  ) %>% 
-  select(-month) %>% 
-  filter(water_year>=2000)
-
-#Create vector of water years
-water_year<-df %>% select(water_year) %>% distinct()
-
-#Create Wrapper function for each water year
-fun<-function(n){
-  
-  #add libraries of interest
-  library(dplyr)
-  library(raster)
-  
-  #isolate water year
-  ts<-df %>% filter(water_year == water_year[n])
-  
-  #Create inner fun
-  inner_fun<-function(m){
-    ele<-df$ele_norm_m[m]
-    dem_inundate(dem_norm, ele)
-  }
-  
-  #apply inner function
-  rs<-lapply(seq(1,nrow(ts)), inner_fun)
-  
-  #Create raster brick
-  rs<-stack(rs)
-  
-  #Calculate sum
-  dur<-raster::calc(rs, sum, na.rm=T)
-  
-  #Export raster
-  return(dur)
+#Loop b/c nothing else worked
+dur<-dem_inundate(dem_norm, ele=inun$ele[1], weight = inun$weight[1])
+for(i in 2:nrow(inun)){
+  temp<-dem_inundate(dem_norm, ele=inun$ele[i], weight = inun$weight[i])
+  dur<-dur+temp
+  remove(temp)
+  print(i)
 }
 
-#Apply function
-t0<-Sys.time()
-x<-lapply(seq(1,nrow(water_year)), fun) 
-tf<-Sys.time()
-tf-t0
+#Account for n years
+dur<-dur/(nrow(df)/365)
 
-#Create raster brick
-rs<-stack(x)
-
-#Calculate sum
-dur<-calc(rs, median, na.rm=T)
+#Create backup raster
 backup<-dur
+
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #5.0 Create an interactive leaflet map------------------------------------------
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -268,7 +195,7 @@ r<-projectRaster(r, crs='+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs')
 
 #Make zero values NA
 r[r==0]<-NA
-r[r>120]<-NA
+r[r>140]<-NA
 
 #Color pallet
 pal <- colorNumeric(c("#e0f3db","#a8ddb5","#0868ac","#084081"), values(r),
@@ -304,4 +231,4 @@ saveWidget(m, file="inundation_dur.html")
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #6.0 Export --------------------------------------------------------------------
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-writeRaster(dur, paste0(spatial_dir,"III_Products/median_inundation_dur.tif"))
+writeRaster(dur, paste0(spatial_dir,"III_Products/mean_inundation_dur.tif"))

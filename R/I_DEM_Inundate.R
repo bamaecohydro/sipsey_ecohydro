@@ -80,17 +80,17 @@ writeRaster(dem,paste0(workspace_dir,"dem.tif"), overwrite=T)
 st_write(flowlines,paste0(workspace_dir,"flowlines.shp"))
 
 #Resample dem [to lower res]
-wbt_aggregate_raster(
-  input = "dem.tif",
-  output = "dem_10.tif",
-  agg_factor = 10,
-  wd = workspace_dir
-)
+# wbt_aggregate_raster(
+#   input = "dem.tif",
+#   output = "dem_10.tif",
+#   agg_factor = 10,
+#   wd = workspace_dir
+# )
 
 #Convert stream to raster 
 wbt_rasterize_streams(
   streams = 'flowlines.shp',
-  base = 'dem_10.tif',
+  base = 'dem.tif',
   output = 'streams.tif',
   wd = workspace_dir
 )  
@@ -98,7 +98,7 @@ wbt_rasterize_streams(
 #Add dem value to stream raster
 wbt_multiply(
   input1 = "streams.tif",
-  input2 = "dem_10.tif",
+  input2 = "dem.tif",
   output = "stream_ele.tif",
   wd = workspace_dir
 )
@@ -115,7 +115,7 @@ wbt_idw_interpolation(
   input = "streams_pnts.shp",
   field = "VALUE", 
   output = "idw.tif",
-  base =  "dem_10.tif",
+  base =  "dem.tif",
   radius = 5000,
   weight = 4.2,
   wd = workspace_dir
@@ -123,7 +123,7 @@ wbt_idw_interpolation(
 
 #Remove valley slope from dem
 wbt_subtract(
-  input1 = "dem_10.tif",
+  input1 = "dem.tif",
   input2 = "idw.tif",
   output = "dem_norm.tif",
   wd = workspace_dir)
@@ -143,7 +143,7 @@ df<- df %>% mutate(ele_norm_m = ele_m + offset)
 
 #4.2 Inundation function----------------------------------------------------------
 #Create inundation function 
-dem_inundate<-function(dem_norm, ele){
+dem_inundate<-function(dem_norm, ele, weight=1){
   
   #Create conditional fun
   con<-function(condition, trueValue, falseValue){
@@ -151,8 +151,57 @@ dem_inundate<-function(dem_norm, ele){
   }
   
   #apply fun
-  con(dem_norm>ele,0,1)
+  r<-con(dem_norm>ele,0,1)
+  
+  #Multiply by weight (i.e., duration of inundation)
+  r<-r*weight
+  r[is.na(r)]<-0
+  r
 }
+
+#4.3 Create relationship between stage and inundation ------------------------------
+#Create list of inputs for dem_inundate fun
+inun<-df %>% 
+  mutate(ele = round(ele_norm_m, 2)) %>% 
+  group_by(ele) %>% 
+  summarise(weight = n())
+
+#run function
+r_inun<-lapply(
+  X=seq(1, nrow(inun)), 
+  FUN = function(n) dem_inundate(dem_norm, ele=inun$ele[n], weight = inun$weight[n])
+)
+
+#Create raster brick
+rs<-stack(r_inun)
+
+#Calculate sum
+dur<-raster::calc(rs, sum, na.rm=T)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #4.3 Wrapper function-----------------------------------------------------------
 #Denote water year for each record

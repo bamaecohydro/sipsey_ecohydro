@@ -27,6 +27,7 @@ workspace_dir <- "data/"
 #Load dem and inundation rasters
 dem<-raster(paste0(spatial_dir,"II_Work\\dem_neon.tif"))
 flood<-raster(paste0(spatial_dir,"III_Products/mean_inundation_dur.tif"))
+hand<-raster(paste0(spatial_dir,"III_Products/hand.tif"))
 
 #load XS data
 xs<-list.files(paste0(spatial_dir,"I_Data/Sipsey transects/"), full.names = T ) %>% 
@@ -77,7 +78,7 @@ mapview(dem) +
 #3.0 Characterize distributions of elevationa nd flood duration ----------------
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #Define  elevation and duration distributions across sampling plots
-p$ele_m<-raster::extract(dem, p, fun = mean)
+p$ele_m<-raster::extract(hand, p, fun = mean)
 p$dur_day<-raster::extract(flood, p, fun = mean)
 
 #Create mask raster to identify flooded areas
@@ -86,9 +87,9 @@ mask[mask==0]<-NA
 mask<-mask*0+1
 
 #Extract distribution from DEM and Duration
-ele_pnts<-dem*mask
+ele_pnts<-hand*mask
 ele_pnts<-rasterToPoints(ele_pnts) 
-ele_pnts<-as_tibble(ele_pnts) %>% filter(layer>55)
+ele_pnts<-as_tibble(ele_pnts) %>% filter(layer>-1)
 dur_pnts<-rasterToPoints(flood) 
 dur_pnts<-as_tibble(dur_pnts) %>% filter(mean_inundation_dur>2)
 
@@ -102,7 +103,7 @@ ks.test(p$dur_day, dur_pnts$mean_inundation_dur)
 #4.0 Plots ----------------------------------------------------------------------
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #elevation
-elevation_plot<-ggplot() +
+ggplot() +
   geom_density(
     aes(ele_pnts$layer),
     bg='#E57200',
@@ -116,9 +117,10 @@ elevation_plot<-ggplot() +
     axis.title = element_text(size = 14), 
     axis.text  = element_text(size = 10)
   ) + 
-  xlab("Probability") + 
-  ylab("Elevation [m]")  
+  ylab("Probability") + 
+  xlab("Elevation [m]")  
   
+#duration
 ggplot() +
   geom_density(
     aes(dur_pnts$mean_inundation_dur),
@@ -133,58 +135,8 @@ ggplot() +
     axis.title = element_text(size = 14), 
     axis.text  = element_text(size = 10)
   ) + 
-  xlab("Probability") + 
-  ylab("Inundation Duration [Day]")  
+  ylab("Probability") + 
+  xlab("Inundation Duration [Day]")  
 
 
 
-
-
-
-
-
-
-
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#5.0 Create Map ----------------------------------------------------------------
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#project raster
-r<-dur
-r@crs<-dem@crs
-r<-projectRaster(r, crs='+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs')
-
-#Make zero values NA
-r[r==0]<-NA
-r[r>120]<-NA
-
-
-#Create Map
-#leaflet
-m<-leaflet(r) %>% 
-  #Add Basemaps
-  addProviderTiles("Esri.WorldImagery", group = "ESRI") %>% 
-  addTiles(group = "OSM") %>%
-  #Add flowpath data
-  addRasterImage(
-    x=r,
-    col=pal,
-    opacity = 0.9,
-    group = "Inundation Duration") %>%
-  #AddLegend
-  addLegend(
-    title = "Inundation [days/yr]",
-    pal = pal, 
-    values = values(r)) %>% 
-  #Add Layer Control Options
-  addLayersControl(
-    baseGroups = c("Esri", "OSM"), 
-    overlayGroups = c("Inundation Duration"))
-
-#print leaflet
-m
-
-#Export widget
-saveWidget(m, file="inundation_dur.html")
-
-#Export widget
-mapshot(m, url="survey_plots2.html")

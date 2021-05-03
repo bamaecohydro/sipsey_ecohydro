@@ -232,3 +232,5 @@ saveWidget(m, file="inundation_dur.html")
 #6.0 Export --------------------------------------------------------------------
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 writeRaster(dur, paste0(spatial_dir,"III_Products/mean_inundation_dur.tif"))
+writeRaster(dem_norm, paste0(spatial_dir,"III_Products/hand.tif"))
+

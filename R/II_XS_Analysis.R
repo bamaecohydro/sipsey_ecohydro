@@ -52,7 +52,7 @@ mapview(dem) +
 #2.0 Create sampling plots -----------------------------------------------------
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #Sample 5 equally placed points along cross section
-center_pnts<-st_line_sample(xs, 5) 
+center_pnts<-st_line_sample(xs, 10) 
 
 #Create box
 p<-center_pnts %>% 
@@ -91,7 +91,7 @@ ele_pnts<-hand*mask
 ele_pnts<-rasterToPoints(ele_pnts) 
 ele_pnts<-as_tibble(ele_pnts) %>% filter(layer>-1)
 dur_pnts<-rasterToPoints(flood) 
-dur_pnts<-as_tibble(dur_pnts) %>% filter(mean_inundation_dur>2)
+dur_pnts<-as_tibble(dur_pnts) %>% filter(mean_inundation_dur>4)
 
 #Conduct KS test on elevation dist
 ks.test(p$ele_m, ele_pnts$layer)
@@ -99,11 +99,16 @@ ks.test(p$ele_m, ele_pnts$layer)
 #Conduct KS test on elevation dist
 ks.test(p$dur_day, dur_pnts$mean_inundation_dur)
 
+#export 
+st_write(center_pnts, paste0(spatial_dir, "III_Products\\plot_center_pnts1.shp"))
+st_write(p, paste0(spatial_dir, "III_Products\\plots1.shp"))
+
+
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #4.0 Plots ----------------------------------------------------------------------
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #elevation
-ggplot() +
+hand<-ggplot() +
   geom_density(
     aes(ele_pnts$layer),
     bg='#E57200',
@@ -118,10 +123,10 @@ ggplot() +
     axis.text  = element_text(size = 10)
   ) + 
   ylab("Probability") + 
-  xlab("Elevation [m]")  
+  xlab("HAND [m]")  
   
 #duration
-ggplot() +
+dur<-ggplot() +
   geom_density(
     aes(dur_pnts$mean_inundation_dur),
     bg='#E57200',
@@ -136,7 +141,13 @@ ggplot() +
     axis.text  = element_text(size = 10)
   ) + 
   ylab("Probability") + 
-  xlab("Inundation Duration [Day]")  
+  xlab("Inundation Duration [Day]") 
+
+#PLOTS! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+library(patchwork)
+png("docs/20210512_Matt.png", width = 7, height = 4, units = 'in', res = 150)
+hand + dur +  plot_annotation(tag_levels = 'A')
+dev.off()
 
 
 

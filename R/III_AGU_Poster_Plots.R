@@ -6,16 +6,7 @@
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # To do list
-# Convert plots to water year
-# Add this years data from the Sipsey
-
-# Email to matt: 
-# 3b Inundation. I would mirror the hydrograph plot, but instead show "modeled inundation" on the y-axis. This could be calculated as "% of max area" or "average width"
-# 
-# 3c Slough hydrographs. Don't worry about labeling sloughs here....however consider making colors based on your connectivity metric (i.e., higher inundation duration == deeper blue). Also, consider overlaying the "median" slough water level too.
-# 
-# 3d Slough stage-Discharge plots. Combine all the plots here. My suggestion would be to add all the data to these plots. For each slough, add a moving average line (checkout geom_smooth in ggplot) and then add your points with a little bit of alpha.
-
+# Consider lining up slough and river hydrographs
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #1.0 Setup workspace------------------------------------------------------------
@@ -98,18 +89,18 @@ hydrograph_plot<-df %>%
   #Add ribbon
   geom_ribbon(
     aes(x=date, ymin = lwr, ymax=upr),
-    col="#E57200",
-    bg="#E57200", 
-    alpha = 0.5) +
+    col="#e6550d",
+    bg="#e6550d", 
+    alpha = 0.25) +
   #Add line data
   geom_line(
     aes(x=date, y=med), 
     lwd=0.75, 
-    col="#E57200") +
+    col="#e6550d") +
   #Add this years flow data
   geom_line(
     aes(x=date, y=flow_2021),
-    col="#232D4B", lwd=1.2
+    col="#08519c", lwd=1.2
   )+
   #Plot y-axis in log scale
   scale_y_log10() +
@@ -282,19 +273,21 @@ inundation_plot<-df %>%
   #Add ribbon
   geom_ribbon(
     aes(x=date, ymin = area_lwr, ymax=area_upr),
-    col="#E57200",
-    bg="#E57200", 
-    alpha = 0.5) +
+    col="#e6550d",
+    bg="#e6550d", 
+    alpha = 0.25) +
   #Add line data
   geom_line(
     aes(x=date, y=area_med), 
     lwd=0.75, 
-    col="#E57200") +
+    col="#e6550d") +
   #Add this years flow data
   geom_line(
     aes(x=date, y=area_2021),
-    col="#232D4B", lwd=1.2
+    col="#08519c", lwd=1.2
   )+
+  #Plot y-axis in log scale
+  #scale_y_log10() +
   #Add predefined black/white theme
   theme_bw() +
   #Change font size of axes
@@ -304,33 +297,87 @@ inundation_plot<-df %>%
   ) + 
   #Add axes titles
   xlab(NULL) + 
-  ylab(expression(Inundation~Area~"[km"^2*"]"))+ 
+  ylab("Inundation Area\n[sq. km]")+ 
+  #expression(Inundation~Area"[km"^2*"]")
   #Control labels
   scale_x_datetime(date_labels = "%b")
 
 #Print
 inundation_plot
 
-#5.05 Plots --------------------------------------------------------------------
-hydrograph_plot + inundation_plot
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# 4.0 Slough hydrographs -------------------------------------------------------
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#read data
+df<-read_csv("data/slough_data.csv") %>% rename(stage=Stage)
+
+#Normalize Slough stage
+df<-df %>%
+  group_by(site) %>% 
+  summarise(max_stage=max(stage, na.rm=T)) %>% 
+  left_join(df,.) %>% 
+  mutate(stage_norm=stage/max_stage*100)
+  
+#plot
+slough_plot<-df %>% 
+  #Convert to posix
+  mutate(day = as.POSIXct(day)) %>% 
+  #Start ggplot
+  ggplot(aes(x=day, y=stage_norm, group=site, color=site))+
+  #Add lines
+  geom_line(lwd=1.2) +
+  #Gradient of inundation duration: 1, 2, 4,5,3
+  scale_color_manual(values=c("#9ecae1", "#bdd7e7","#3182bd", "#08519c","#6baed6")) + 
+  #Add predefined black/white theme
+  theme_bw() +
+  #Change font size of axes
+  theme(
+    axis.title = element_text(size = 32), 
+    axis.text  = element_text(size = 28),
+    legend.position = "none"
+  ) + 
+  #Add axes titles
+  xlab(NULL) + 
+  ylab('Slough Stage\n[% of max]')+ 
+  #Control labels
+  scale_x_datetime(date_labels = "%b")
+
+#Print
+slough_plot
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# 5.0 Slough Stage-River Discharge plots ---------------------------------------
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#plot
+slough_river_plot<-df %>% 
+  #Start ggplot
+  ggplot(aes(y=stage_norm, x=Q, group=site, color=site))+
+  #Add lines
+  geom_point(alpha=0.5) +
+  #Add smooothed lines
+  geom_smooth(se=F, lwd=1.2) +
+  #Gradient of inundation duration: 1, 2, 4,5,3
+  scale_color_manual(values=c("#9ecae1", "#bdd7e7","#3182bd", "#08519c","#6baed6")) + 
+  #Plot y-axis in log scale
+  scale_x_log10() +
+  #Add predefined black/white theme
+  theme_bw() +
+  #Change font size of axes
+  theme(
+    axis.title = element_text(size = 32), 
+    axis.text  = element_text(size = 28),
+    legend.position = "none"
+  ) + 
+  #Add axes titles
+  xlab("Streamflow [cfs]") +
+  ylab('Slough Stage\n[% of max]')
+
+slough_river_plot
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#6.0 Final plots --------------------------------------------------------------------
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+plot<-hydrograph_plot + inundation_plot + slough_plot + slough_river_plot
+ggsave('docs/agu_hydro.jpg', plot, width = 15, height = 9.5, units="in", dpi=300)
 

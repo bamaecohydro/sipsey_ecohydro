@@ -14,10 +14,7 @@ remove(list=ls())
 #Load libraries of interest
 library(dataRetrieval)
 library(tidyverse)
-
-#Set directories of interest
-spatial_dir<-"C:\\Users\\cnjones7\\Box Sync\\My Folders\\Research Projects\\Sipsey\\spatial_data\\"
-workspace_dir <- "data/"
+library(lubridate)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #2.0 Obtain USGS Stage Data ----------------------------------------------------
@@ -75,9 +72,9 @@ df %>%
     stage_q3 = quantile(stage_m, 0.75, na.rm=T)) %>%
   #Smooth time series
   mutate(
-    stage_q1 = stats::filter(x=stage_q1, filter = rep(1/10,10), sides=2),
-    stage_q2 = stats::filter(x=stage_q2, filter = rep(1/10,10), sides=2),
-    stage_q3 = stats::filter(x=stage_q3, filter = rep(1/10,10), sides=2)
+    stage_q1 = stats::filter(x=stage_q1, filter = rep(1/30,30), sides=2),
+    stage_q2 = stats::filter(x=stage_q2, filter = rep(1/30,30), sides=2),
+    stage_q3 = stats::filter(x=stage_q3, filter = rep(1/30,30), sides=2)
   ) %>% 
   #plot
   ggplot() + 

@@ -1,5 +1,5 @@
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#Title: DEM Inundate
+#Title: Sipsey Median Hydrograph
 #Coder: Nate Jones (cnjones7@ua.edu)
 #Date: 9/4/2020
 #Purpose: Plot mean stage of sipsey river
